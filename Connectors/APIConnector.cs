@@ -43,8 +43,16 @@ namespace HomeMaintenanceNotification.Connectors
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod)
         {
-            // TODO - unimplemented
-            return new List<MaintenanceCycleTaskDTO>();
+            HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
+            //TODO - add call to AAD for a bearer token
+            requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "TODO");
+
+            var result = await _httpClient.SendAsync(requestMessage);
+            result.EnsureSuccessStatusCode();
+            string contentString = await result.Content.ReadAsStringAsync();
+            ODataEnvelope envelope = JsonSerializer.Deserialize<ODataEnvelope>(contentString, new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
+
+            return envelope.Value;
         }
     }
 }

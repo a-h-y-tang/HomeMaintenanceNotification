@@ -10,24 +10,40 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Web.Http;
 using Microsoft.AspNetCore.Http;
+using System.Runtime.ConstrainedExecution;
 
 namespace HomeMaintenanceNotification
 {
     /// <summary>
-    /// Triggered each weekend morning to calculate which home maintenance jobs are to be done this weekend
+    /// Notifies task manager of home maintenance tasks to complete
     /// </summary>
     public class NotifyIncompleteJobsForWeekendFunction
     {
-        private readonly IAPIConnector _connector;
+        private readonly IAPIConnector _apiConnector;
+
+        private readonly ISendGridConnector _sendGridConnector;
 
         private readonly ILogger _logger;
 
-        public NotifyIncompleteJobsForWeekendFunction(IAPIConnector connector, ILogger<NotifyIncompleteJobsForWeekendFunction> logger)
+        private static int WEEKLY_DAYS_CHECK = 16;
+        private static int QUARTERLY_DAYS_CHECK = 92;
+        private static int SEMIANNUAL_DAYS_CHECK = 183;
+        private static int ANNUAL_DAYS_CHECK = 365;
+
+        public NotifyIncompleteJobsForWeekendFunction(IAPIConnector apiConnector, 
+            ISendGridConnector sendGridConnector,
+            ILogger<NotifyIncompleteJobsForWeekendFunction> logger)
         {
-            _connector = connector;
+            _apiConnector = apiConnector;
+            _sendGridConnector = sendGridConnector;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Manual trigger for testing or adhoc use
+        /// </summary>
+        /// <param name="req"></param>
+        /// <returns></returns>
         [FunctionName("NotifyIncompleteJobsForWeekendByHTTP")]
         public async Task<IActionResult> Post([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "notifyTasks")] HttpRequest req)
         {
@@ -43,11 +59,16 @@ namespace HomeMaintenanceNotification
             }
         }
 
-
+        /// <summary>
+        /// Triggered each weekend morning to calculate which home maintenance jobs are to be done this weekend
+        /// </summary>
+        /// <param name="myTimer"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         [FunctionName("NotifyIncompleteJobsForWeekendByTimer")]
         public async Task Run([TimerTrigger("0 0 7 * * 6")]TimerInfo myTimer, ILogger log)
         {
-            log.LogInformation($"NotifyIncompleteJobsForWeekend function executed at: {DateTime.Now}");
+            log.LogInformation($"NotifyIncompleteJobsForWeekendByTimer function executed at: {DateTime.Now}");
 
             await Execute();
         }
@@ -59,27 +80,49 @@ namespace HomeMaintenanceNotification
             int weekOfMonth = (dayOfMonth / 7) + 1;
 
             // call home maintenance API for jobs for this weekend
-            List<MaintenanceCycleTaskDTO> weeklyTasks = await _connector.GetWeeklyTasks(weekOfMonth);
+            List<MaintenanceCycleTaskDTO> weeklyTasks = await _apiConnector.GetWeeklyTasks(weekOfMonth);
 
             // call home maintenance API for quarterly jobs that haven't been done in 3 months
-            List<MaintenanceCycleTaskDTO> quarterlyTasks = await _connector.GetTasksByFrequencyPeriod(Frequency.Quarterly);
+            List<MaintenanceCycleTaskDTO> quarterlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Quarterly);
 
             // call home maintenance API for semi-annual jobs that haven't been done in 6 months
-            List<MaintenanceCycleTaskDTO> semiAnnualTasks = await _connector.GetTasksByFrequencyPeriod(Frequency.Semiannual);
+            List<MaintenanceCycleTaskDTO> semiAnnualTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Semiannual);
 
             // call home maintenance API for annual jobs that haven't been done in the last 12 months
-            List<MaintenanceCycleTaskDTO> yearlyTasks = await _connector.GetTasksByFrequencyPeriod(Frequency.Yearly);
+            List<MaintenanceCycleTaskDTO> yearlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Yearly);
 
             // filter out the jobs that have already been done in the last couple of weeks (sometimes jobs get done in a different order to the normal week due to weather)
+            // TODO - refactor duplicate logic within RemoveAll
             weeklyTasks.RemoveAll(task =>
                 {
                     TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
-                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < 16);
+                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < WEEKLY_DAYS_CHECK);
+                }
+            );
+
+            quarterlyTasks.RemoveAll(task =>
+                {
+                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
+                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < QUARTERLY_DAYS_CHECK);
+                }
+            );
+
+            semiAnnualTasks.RemoveAll(task =>
+                {
+                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
+                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < SEMIANNUAL_DAYS_CHECK);
+                }
+            );
+
+            yearlyTasks.RemoveAll(task =>
+                {
+                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
+                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < ANNUAL_DAYS_CHECK);
                 }
             );
 
             // construct and send email to SendGrid
-            // TODO - SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks);
+            await _sendGridConnector.SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks);
         }
     }
 }

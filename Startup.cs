@@ -14,6 +14,9 @@ namespace HomeMaintenanceNotification
             builder.Services.AddSingleton<ILoggerFactory, LoggerFactory>();
             builder.Services.AddLogging();
             builder.Services.AddScoped<IAPIConnector, APIConnector>();
+            builder.Services.AddScoped<ISendGridConnector, SendGridConnector>();
+
+            // TODO - use keyvault to store SendGrid API key
         }
     }
 }
