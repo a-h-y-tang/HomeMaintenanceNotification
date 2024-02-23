@@ -92,37 +92,23 @@ namespace HomeMaintenanceNotification
             List<MaintenanceCycleTaskDTO> yearlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Yearly);
 
             // filter out the jobs that have already been done in the last couple of weeks (sometimes jobs get done in a different order to the normal week due to weather)
-            // TODO - refactor duplicate logic within RemoveAll
-            weeklyTasks.RemoveAll(task =>
-                {
-                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
-                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < WEEKLY_DAYS_CHECK);
-                }
-            );
-
-            quarterlyTasks.RemoveAll(task =>
-                {
-                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
-                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < QUARTERLY_DAYS_CHECK);
-                }
-            );
-
-            semiAnnualTasks.RemoveAll(task =>
-                {
-                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
-                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < SEMIANNUAL_DAYS_CHECK);
-                }
-            );
-
-            yearlyTasks.RemoveAll(task =>
-                {
-                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
-                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < ANNUAL_DAYS_CHECK);
-                }
-            );
+            removeCompletedTasks(weeklyTasks, WEEKLY_DAYS_CHECK);
+            removeCompletedTasks(quarterlyTasks, QUARTERLY_DAYS_CHECK);
+            removeCompletedTasks(semiAnnualTasks, SEMIANNUAL_DAYS_CHECK);
+            removeCompletedTasks(yearlyTasks, ANNUAL_DAYS_CHECK);
 
             // construct and send email to SendGrid
             await _sendGridConnector.SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks);
+        }
+
+        private void removeCompletedTasks(List<MaintenanceCycleTaskDTO> tasks, int withinDaysToCheck)
+        {
+            tasks.RemoveAll(task =>
+                {
+                    TaskExecutionHistoryDTO lastExecutionRecord = task.TaskExecutionHistory.OrderByDescending(task => task.TaskExecutionDateTime).FirstOrDefault();
+                    return (lastExecutionRecord != null && DateTime.Now.Subtract(lastExecutionRecord.TaskExecutionDateTime).Days < withinDaysToCheck);
+                }
+            );
         }
     }
 }
