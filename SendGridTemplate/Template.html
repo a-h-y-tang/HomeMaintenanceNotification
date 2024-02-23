@@ -1,0 +1,115 @@
+﻿<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <style>
+        .tasks {
+            border-collapse: collapse;
+            margin-top: 10px;
+            border: 1px solid;
+        }
+
+            .tasks th {
+                color: white;
+                background-color: green;
+            }
+
+            .tasks tr:nth-child(even) {
+                background-color: lightgray;
+            }
+
+        .taskHeader {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        p {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <p>Hi,</p>
+
+    <p>Please find below the home maintenance tasks that are due for completion.</p>
+
+    <p>Kind regards,</p>
+
+    <p>Home Maintenance Calendar</p>
+
+
+    <p class="taskHeader">Weekly Tasks</p>
+
+    <table class="tasks">
+        <tr>
+            <th>Task Name</th>
+            <th>Week Number</th>
+        </tr>
+        <tbody>
+            {{#each weeklyTasks}}
+            <tr>
+                <td>
+                    {{{this.TaskName}}}
+                </td>
+                <td>
+                    {{{this.WeekNumber}}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <p class="taskHeader">Quarterly Tasks</p>
+
+    <table class="tasks">
+        <tr>
+            <th>Task Name</th>
+        </tr>
+        <tbody>
+            {{#each quarterlyTasks}}
+            <tr>
+                <td>
+                    {{{this.TaskName}}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <p class="taskHeader">Semi Annual Tasks</p>
+
+    <table class="tasks">
+        <tr>
+            <th>Task Name</th>
+        </tr>
+        <tbody>
+            {{#each semiAnnualTasks}}
+            <tr>
+                <td>
+                    {{{this.TaskName}}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <p class="taskHeader">Annual Tasks</p>
+
+    <table class="tasks">
+        <tr>
+            <th>Task Name</th>
+        </tr>
+        <tbody>
+            {{#each annualTasks}}
+            <tr>
+                <td>
+                    {{{this.TaskName}}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+</body>
+</html>
