@@ -20,18 +20,17 @@ variables:
 steps:
 - script: echo Code has been pushed recently to HomeMaintenanceNotification!
   displayName: 'Run echo'
+- task: UseDotNet@2
+  displayName: Use .NET Core SDK 8
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'
 
-#  - task: UseDotNet@2
-#    displayName: Use .NET Core SDK 8
-#    inputs:
-#      packageType: 'sdk'
-#      version: '8.x'
-
-#  - task: DotNetCoreCLI@2
-#    displayName: Restore
-#    inputs:
-#      command: restore
-#      projects: $(RestoreProjects)
+- task: DotNetCoreCLI@2
+  displayName: Restore
+  inputs:
+    command: restore
+    projects: $(RestoreProjects)
 
 #  - task: DotNetCoreCLI@2
 #    displayName: Build
