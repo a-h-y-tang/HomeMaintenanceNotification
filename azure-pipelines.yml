@@ -8,7 +8,7 @@ trigger:
 - azure-pipelines
 
 pool:
-  vmImage: 'windows-latest'
+  name: TangFamilySelfHosted
 
 variables:
   group: HomeMaintenance
@@ -18,9 +18,9 @@ variables:
   RestoreProjects: 'HomeMaintenanceNotification.csproj'
 
 jobs:
-- job: Windows
+- job: BuildAndDeploy
   pool:
-    vmImage: 'windows-latest'
+    name: TangFamilySelfHosted
   steps:
   - task: UseDotNet@2
     displayName: Use .NET Core SDK 8
