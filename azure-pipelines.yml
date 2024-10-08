@@ -11,6 +11,7 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
+  group: HomeMaintenance
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
