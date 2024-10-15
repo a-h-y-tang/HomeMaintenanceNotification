@@ -18,39 +18,59 @@ variables:
   RestoreProjects: 'HomeMaintenanceNotification.csproj'
 
 steps:
-- script: echo Code has been pushed recently to HomeMaintenanceNotification!
-  displayName: 'Run echo'
-- task: UseDotNet@2
-  displayName: Use .NET Core SDK 8
-  inputs:
-    packageType: 'sdk'
-    version: '8.x'
+#- task: UseDotNet@2
+#  displayName: Use .NET Core SDK 6
+#  inputs:
+#    packageType: 'sdk'
+#    version: '6.x'
+
+#- task: DotNetCoreCLI@2
+#  displayName: Restore
+#  inputs:
+#    command: restore
+#    projects: $(RestoreProjects)
+- script: |
+    dotnet restore
+    dotnet build --configuration Release
+
+#- task: DotNetCoreCLI@2
+#  displayName: Build
+#  inputs:
+#    command: build
+#    projects: $(RestoreProjects)
+#    arguments: '--configuration $(buildConfiguration)'
+
+#- task: DotNetCoreCLI@2
+#  displayName: Publish
+#  inputs:
+#    targetPath: '$build.artifactstagingdirectory'
+#    artifactName: drop
+#    condition: succeeded()
+
+#- task: DownloadPipelineArtifact@2
+#  inputs:
+#    buildType: 'current'
+#    artifactName: 'drop'
+#    targetPath: $(Pipeline.workspace)
 
 - task: DotNetCoreCLI@2
-  displayName: Restore
   inputs:
-    command: restore
-    projects: $(RestoreProjects)
-
-- task: DotNetCoreCLI@2
-  displayName: Build
+    command: publish
+    arguments: '--configuration Release --output publish_output'
+    projects: '*.csproj'
+    publishWebProjects: false
+    modifyOutputPath: false
+    zipAfterPublish: false
+- task: ArchiveFiles@2
+  displayName: "Archive files"
   inputs:
-    command: build
-    projects: $(RestoreProjects)
-    arguments: '--configuration $(buildConfiguration)'
-- task: DotNetCoreCLI@2
-  displayName: Publish
+    rootFolderOrFile: "$(System.DefaultWorkingDirectory)/publish_output"
+    includeRootFolder: false
+    archiveFile: "$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip"
+- task: PublishBuildArtifacts@1
   inputs:
-    targetPath: '$build.artifactstagingdirectory'
-    artifactName: drop
-    condition: succeeded()
-
-- task: DownloadPipelineArtifact@2
-  inputs:
-    buildType: 'current'
+    PathtoPublish: '$(System.DefaultWorkingDirectory)/build$(Build.BuildId).zip'
     artifactName: 'drop'
-    targetPath: $(Pipeline.workspace)
-
 
 - task: AzureFunctionApp@1
   displayName: DeployFunction
