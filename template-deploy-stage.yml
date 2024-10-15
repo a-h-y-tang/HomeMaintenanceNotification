@@ -12,7 +12,7 @@ parameters:
 - name: appName
   default: 'homemaintenance-func-dev'
 - name: resourceGroup
-  default: 'homemaintenance'
+  default: 'home-maintenance'
 
 stages:
   - stage: ${{ parameters.stageName }}
