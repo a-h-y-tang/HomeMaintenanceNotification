@@ -41,7 +41,7 @@ stages:
                    deployToSlotOrASE: true
                    resourceGroupName: ${{ parameters.resourceGroup }}
                    slotName: 'production'
-                   package: '$(Pipeline.workspace)/HomeMaintenanceNotification.zip'
+                   package: '$(Pipeline.workspace)/webapp_build/*.zip'
                    AppSettings: >-
                      -ASPNET_ENVIRONMENT "Production"
                      -HomeMaintenanceAPIEndpoint "$(HomeMaintenanceAPIEndpoint)
