@@ -44,7 +44,7 @@ stages:
                    package: '$(Pipeline.workspace)/webapp_build/*.zip'
                    AppSettings: >-
                      -ASPNET_ENVIRONMENT "Production"
-                     -HomeMaintenanceAPIEndpoint "$(HomeMaintenanceAPIEndpoint)
+                     -HomeMaintenanceAPIEndpoint "$(HomeMaintenanceAPIEndpoint)"
                      -fromEmail "$(fromEmail)"
                      -fromName "$(fromName)"
                      -recipientEmail "$(recipientEmail)"
