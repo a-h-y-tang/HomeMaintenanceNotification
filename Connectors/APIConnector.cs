@@ -14,22 +14,19 @@ namespace HomeMaintenanceNotification.Connectors
     /// </summary>
     public class APIConnector : IAPIConnector
     {
-        private readonly ILogger _logger;
-
         private readonly IConfiguration _configuration;
 
         private readonly HttpClient _httpClient;
 
-        public APIConnector(HttpClient httpClient, ILogger<APIConnector> logger, IConfiguration configuration)
+        public APIConnector(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _logger = logger;
             _configuration = configuration;
         }
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetWeeklyTasks(int weekNumber)
         {
-            HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}");
+            HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}");
             //TODO - add call to AAD for a bearer token
             requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "TODO");
 
@@ -43,7 +40,7 @@ namespace HomeMaintenanceNotification.Connectors
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod)
         {
-            HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
+            HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
             //TODO - add call to AAD for a bearer token
             requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "TODO");
 
