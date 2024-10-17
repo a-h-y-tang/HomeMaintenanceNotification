@@ -49,6 +49,8 @@ namespace HomeMaintenanceNotification
         {
             try
             {
+                _logger.LogInformation($"NotifyIncompleteJobsForWeekendByHttp function executed at: {DateTime.Now}");
+
                 await Execute();
                 return new OkResult();
             }
@@ -80,6 +82,7 @@ namespace HomeMaintenanceNotification
             int weekOfMonth = (dayOfMonth / 7) + 1;
 
             // call home maintenance API for jobs for this weekend
+            _logger.LogInformation("Retrieving weekly tasks for week: {0}", weekOfMonth);
             List<MaintenanceCycleTaskDTO> weeklyTasks = await _apiConnector.GetWeeklyTasks(weekOfMonth);
 
             // call home maintenance API for quarterly jobs that haven't been done in 3 months

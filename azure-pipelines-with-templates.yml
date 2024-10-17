@@ -1,0 +1,37 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+- azure-pipelines
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+stages:
+  - template: template-build-stage.yml
+  - template: template-deploy-stage.yml
+    parameters:
+      stageName: DeployToDev
+      jobName: 'Deploy To Dev'
+      environment: dev
+      variableGroup: homemaintenance-func-dev
+      dependsOnStage: Build
+      appName: 'homemaintenance-func-dev'
+  - template: template-deploy-stage.yml
+    parameters:
+      stageName: DeployToQA
+      jobName: 'Deploy To QA'
+      environment: qa
+      variableGroup: homemaintenance-func-qa
+      dependsOnStage: DeployToDev
+      appName: 'homemaintenance-func-qa'
+
+
+
+
+

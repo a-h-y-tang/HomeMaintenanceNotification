@@ -1,0 +1,9 @@
+stages:
+  - stage: Build
+    displayName: Build Application
+    jobs:
+    - job: Build
+      pool:
+        name: TangFamilySelfHosted        
+      steps:           
+      - template: template-build-steps.yml

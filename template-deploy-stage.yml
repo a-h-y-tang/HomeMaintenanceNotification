@@ -1,0 +1,54 @@
+parameters:
+- name: stageName
+  default: ''
+- name: jobName
+  default: ''
+- name: environment
+  default: ''
+- name: variableGroup
+  default: ''
+- name: dependsOnStage
+  default: ''
+- name: appName
+  default: 'homemaintenance-func-dev'
+- name: resourceGroup
+  default: 'home-maintenance'
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    dependsOn: ${{ parameters.dependsOnStage }}
+    condition: succeeded()
+    jobs:
+      - deployment: Deploy
+        displayName: ${{ parameters.jobName }}
+        pool:
+          name: 'TangFamilySelfHosted'
+        variables:
+        - group: ${{ parameters.variableGroup }}
+        environment: ${{ parameters.environment }}       
+        strategy:
+          runOnce:
+           deploy:
+             steps:
+               - download: current
+                 artifact: webapp_build
+               - task: AzureFunctionApp@1
+                 displayName: DeployFunction
+                 inputs:
+                   azureSubscription: 'AzureDevOpsToAzure'
+                   appType: 'functionapp'
+                   appName: ${{ parameters.appName }}  
+                   deployToSlotOrASE: true
+                   resourceGroupName: ${{ parameters.resourceGroup }}
+                   slotName: 'production'
+                   package: '$(Pipeline.workspace)/webapp_build/*.zip'
+                   AppSettings: >-
+                     -ASPNET_ENVIRONMENT "Production"
+                     -HomeMaintenanceAPIEndpoint "$(HomeMaintenanceAPIEndpoint)"
+                     -fromEmail "$(fromEmail)"
+                     -fromName "$(fromName)"
+                     -recipientEmail "$(recipientEmail)"
+                     -recipientName "$(recipientName)"
+                     -sendGridApiKey "$(sendGridApiKey)"
+                     -templateId "$(templateId)"
+                   deploymentMethod: 'auto'
