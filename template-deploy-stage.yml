@@ -45,4 +45,10 @@ stages:
                    AppSettings: >-
                      -ASPNET_ENVIRONMENT "Production"
                      -HomeMaintenanceAPIEndpoint "$(HomeMaintenanceAPIEndpoint)
+                     -fromEmail "$(fromEmail)"
+                     -fromName "$(fromName)"
+                     -recipientEmail "$(recipientEmail)"
+                     -recipientName "$(recipientName)"
+                     -sendGridApiKey "$(sendGridApiKey)"
+                     -templateId "$(templateId)"
                    deploymentMethod: 'auto'
