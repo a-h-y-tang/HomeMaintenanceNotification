@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿#nullable enable
+using System.Collections.Generic;
 
 namespace HomeMaintenanceNotification.DTOs
 {
@@ -9,7 +10,7 @@ namespace HomeMaintenanceNotification.DTOs
     {
         public long? Id { get; set; }
 
-        public string TaskName { get; set; }
+        public string TaskName { get; set; } = string.Empty;
 
         public int TaskFrequency { get; set; }
 

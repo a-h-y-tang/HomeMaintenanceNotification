@@ -25,10 +25,10 @@ namespace HomeMaintenanceNotification
 
         private readonly ILogger _logger;
 
-        private static int WEEKLY_DAYS_CHECK = 16;
-        private static int QUARTERLY_DAYS_CHECK = 92;
-        private static int SEMIANNUAL_DAYS_CHECK = 183;
-        private static int ANNUAL_DAYS_CHECK = 365;
+        private static readonly int WEEKLY_DAYS_CHECK = 16;
+        private static readonly int QUARTERLY_DAYS_CHECK = 92;
+        private static readonly int SEMIANNUAL_DAYS_CHECK = 183;
+        private static readonly int ANNUAL_DAYS_CHECK = 365;
 
         public NotifyIncompleteJobsForWeekendFunction(IAPIConnector apiConnector, 
             ISendGridConnector sendGridConnector,
@@ -95,16 +95,16 @@ namespace HomeMaintenanceNotification
             List<MaintenanceCycleTaskDTO> yearlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Yearly);
 
             // filter out the jobs that have already been done in the last couple of weeks (sometimes jobs get done in a different order to the normal week due to weather)
-            removeCompletedTasks(weeklyTasks, WEEKLY_DAYS_CHECK);
-            removeCompletedTasks(quarterlyTasks, QUARTERLY_DAYS_CHECK);
-            removeCompletedTasks(semiAnnualTasks, SEMIANNUAL_DAYS_CHECK);
-            removeCompletedTasks(yearlyTasks, ANNUAL_DAYS_CHECK);
+            RemoveCompletedTasks(weeklyTasks, WEEKLY_DAYS_CHECK);
+            RemoveCompletedTasks(quarterlyTasks, QUARTERLY_DAYS_CHECK);
+            RemoveCompletedTasks(semiAnnualTasks, SEMIANNUAL_DAYS_CHECK);
+            RemoveCompletedTasks(yearlyTasks, ANNUAL_DAYS_CHECK);
 
             // construct and send email to SendGrid
             await _sendGridConnector.SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks);
         }
 
-        private void removeCompletedTasks(List<MaintenanceCycleTaskDTO> tasks, int withinDaysToCheck)
+        private static void RemoveCompletedTasks(List<MaintenanceCycleTaskDTO> tasks, int withinDaysToCheck)
         {
             tasks.RemoveAll(task =>
                 {
