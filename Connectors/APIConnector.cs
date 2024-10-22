@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -81,11 +82,11 @@ namespace HomeMaintenanceNotification.Connectors
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetWeeklyTasks(int weekNumber)
         {
-            HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}");
-            //TODO - add call to AAD for a bearer token
-            requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "TODO");
 
             var contentString = await _resiliencePipeline.ExecuteAsync(async ct => {
+                HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}");
+                //TODO - add call to AAD for a bearer token
+                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "TODO");
                 var result = await _httpClient.SendAsync(requestMessage, ct);
                 result.EnsureSuccessStatusCode();
                 return await result.Content.ReadAsStringAsync(ct);
@@ -98,11 +99,12 @@ namespace HomeMaintenanceNotification.Connectors
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod)
         {
-            HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
-            //TODO - add call to AAD for a bearer token
-            requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "TODO");
 
             var contentString = await _resiliencePipeline.ExecuteAsync(async ct => {
+                HttpRequestMessage requestMessage = new(HttpMethod.Get, 
+                    $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
+                //TODO - add call to AAD for a bearer token
+                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "TODO");
                 var result = await _httpClient.SendAsync(requestMessage, ct);
                 result.EnsureSuccessStatusCode();
                 return await result.Content.ReadAsStringAsync(ct);
