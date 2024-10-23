@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace HomeMaintenanceNotification.Connectors
@@ -27,6 +28,10 @@ namespace HomeMaintenanceNotification.Connectors
 
         private readonly ResiliencePipeline _resiliencePipeline;
 
+        private static readonly int DEFAULT_MAX_RETRIES = 2;
+
+        private static readonly int DEFAULT_RETRY_DELAY_MS = 1000;
+
         public APIConnector(HttpClient httpClient, ILogger<APIConnector> logger, IConfiguration configuration)
         {
             _httpClient = httpClient;
@@ -34,82 +39,27 @@ namespace HomeMaintenanceNotification.Connectors
             _logger = logger;
 
             // Define a pipeline builder which will be used to compose strategies incrementally.
-            var pipelineBuilder = new ResiliencePipelineBuilder();
-
-            int maxRetries = GetConfiguration("APIConnectorMaxRetries", 1);
-            int retryDelay = GetConfiguration("APIConnectorRetryDelayMs", 100);
-            pipelineBuilder.AddRetry(new()
-            {
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex => ex is not BrokenCircuitException),
-                MaxRetryAttempts = maxRetries,
-                Delay = TimeSpan.FromMilliseconds(retryDelay),
-                OnRetry = args =>
-                {
-                    var exception = args.Outcome.Exception!;
-                    logger.LogError($"Strategy logging: {exception.Message}", exception);
-                    return default;
-                }
-            }); // We are not calling the Build method here because we will do it as a separate step to make the code cleaner.
-
-            pipelineBuilder.AddCircuitBreaker(new()
-            {
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(),
-                FailureRatio = 1.0,
-                SamplingDuration = TimeSpan.FromSeconds(2),
-                MinimumThroughput = 2,
-                BreakDuration = TimeSpan.FromSeconds(3),
-                OnOpened = args =>
-                {
-                    var exception = args.Outcome.Exception!;
-                    logger.LogWarning($"Breaker logging: Breaking the circuit for {args.BreakDuration.TotalMilliseconds}ms! due to: {exception.Message}");
-                    return default;
-                },
-                OnClosed = args =>
-                {
-                    logger.LogInformation("Breaker logging: Call OK! Closed the circuit again!");
-                    return default;
-                },
-                OnHalfOpened = args =>
-                {
-                    logger.LogInformation("Breaker logging: Half-open: Next call is a trial!");
-                    return default;
-                }
-            }); // We are not calling the Build method because we want to add one more strategy to the pipeline.
-
-            // Build the pipeline since we have added all the necessary strategies to it.
-            _resiliencePipeline = pipelineBuilder.Build();
+            int maxRetries = GetConfiguration("DEFAULT_MAX_RETRIES", DEFAULT_MAX_RETRIES);
+            int retryDelayMs = GetConfiguration("DEFAULT_RETRY_DELAY_MS", DEFAULT_RETRY_DELAY_MS);
+            _resiliencePipeline = RetryCircuitBreakerPipelineBuilder.Build(logger, maxRetries, retryDelayMs);
         }
 
-        public async Task<List<MaintenanceCycleTaskDTO>> GetWeeklyTasks(int weekNumber)
+        public async Task<List<MaintenanceCycleTaskDTO>> GetWeeklyTasks(int weekNumber, CancellationToken cancellationToken = default)
         {
-
-            var contentString = await _resiliencePipeline.ExecuteAsync(async ct => {
-                HttpRequestMessage requestMessage = new(HttpMethod.Get, $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}");
-                //TODO - add call to AAD for a bearer token
-                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "TODO");
-                var result = await _httpClient.SendAsync(requestMessage, ct);
-                result.EnsureSuccessStatusCode();
-                return await result.Content.ReadAsStringAsync(ct);
-            });
-
-            ODataEnvelope envelope = JsonSerializer.Deserialize<ODataEnvelope>(contentString, new JsonSerializerOptions() { PropertyNameCaseInsensitive = true});
+            string url = $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}";
+            var envelope = await _resiliencePipeline.ExecuteAsync(async ct => {
+                return await ExecuteGet(url, cancellationToken);
+            }, cancellationToken);
 
             return envelope.Value;
         }
 
-        public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod)
+        public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod, CancellationToken cancellationToken = default)
         {
-
-            var contentString = await _resiliencePipeline.ExecuteAsync(async ct => {
-                HttpRequestMessage requestMessage = new(HttpMethod.Get, 
-                    $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}");
-                //TODO - add call to AAD for a bearer token
-                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "TODO");
-                var result = await _httpClient.SendAsync(requestMessage, ct);
-                result.EnsureSuccessStatusCode();
-                return await result.Content.ReadAsStringAsync(ct);
-            });
-            ODataEnvelope envelope = JsonSerializer.Deserialize<ODataEnvelope>(contentString, new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
+            string url = $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}";
+            var envelope = await _resiliencePipeline.ExecuteAsync(async ct => {
+                return await ExecuteGet(url, cancellationToken);
+            }, cancellationToken);
 
             return envelope.Value;
         }
@@ -123,6 +73,20 @@ namespace HomeMaintenanceNotification.Connectors
                 return value;
 
             return defaultValue;
+        }
+
+        private async Task<ODataEnvelope> ExecuteGet(string requestUrl, CancellationToken ct)
+        {
+            HttpRequestMessage requestMessage = new(HttpMethod.Get, requestUrl);
+            //TODO - add call to AAD for a bearer token
+            requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "TODO");
+
+            var result = await _httpClient.SendAsync(requestMessage, ct);
+            result.EnsureSuccessStatusCode();
+            var contentString = await result.Content.ReadAsStringAsync(ct);
+
+            return JsonSerializer.Deserialize<ODataEnvelope>(contentString,
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
         }
     }
 }

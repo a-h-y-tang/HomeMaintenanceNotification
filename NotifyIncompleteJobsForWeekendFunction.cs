@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Web.Http;
 using Microsoft.AspNetCore.Http;
 using System.Runtime.ConstrainedExecution;
+using System.Threading;
 
 namespace HomeMaintenanceNotification
 {
@@ -45,13 +46,13 @@ namespace HomeMaintenanceNotification
         /// <param name="req"></param>
         /// <returns></returns>
         [FunctionName("NotifyIncompleteJobsForWeekendByHTTP")]
-        public async Task<IActionResult> Post([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "notifyTasks")] HttpRequest req)
+        public async Task<IActionResult> Post([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "notifyTasks")] HttpRequest req, CancellationToken ct)
         {
             try
             {
                 _logger.LogInformation($"NotifyIncompleteJobsForWeekendByHttp function executed at: {DateTime.Now}");
 
-                await Execute();
+                await Execute(ct);
                 return new OkResult();
             }
             catch (Exception ex)
@@ -72,10 +73,10 @@ namespace HomeMaintenanceNotification
         {
             log.LogInformation($"NotifyIncompleteJobsForWeekendByTimer function executed at: {DateTime.Now}");
 
-            await Execute();
+            await Execute(CancellationToken.None);
         }
 
-        private async Task Execute()
+        private async Task Execute(CancellationToken ct)
         {            
             // calculate the week that today is.  week 0 doesn't exist.  the first saturday is week 1.
             int dayOfMonth = DateTime.Now.Day;
@@ -83,16 +84,16 @@ namespace HomeMaintenanceNotification
 
             // call home maintenance API for jobs for this weekend
             _logger.LogInformation("Retrieving weekly tasks for week: {0}", weekOfMonth);
-            List<MaintenanceCycleTaskDTO> weeklyTasks = await _apiConnector.GetWeeklyTasks(weekOfMonth);
+            List<MaintenanceCycleTaskDTO> weeklyTasks = await _apiConnector.GetWeeklyTasks(weekOfMonth, ct);
 
             // call home maintenance API for quarterly jobs that haven't been done in 3 months
-            List<MaintenanceCycleTaskDTO> quarterlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Quarterly);
+            List<MaintenanceCycleTaskDTO> quarterlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Quarterly, ct);
 
             // call home maintenance API for semi-annual jobs that haven't been done in 6 months
-            List<MaintenanceCycleTaskDTO> semiAnnualTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Semiannual);
+            List<MaintenanceCycleTaskDTO> semiAnnualTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Semiannual, ct);
 
             // call home maintenance API for annual jobs that haven't been done in the last 12 months
-            List<MaintenanceCycleTaskDTO> yearlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Yearly);
+            List<MaintenanceCycleTaskDTO> yearlyTasks = await _apiConnector.GetTasksByFrequencyPeriod(Frequency.Yearly, ct);
 
             // filter out the jobs that have already been done in the last couple of weeks (sometimes jobs get done in a different order to the normal week due to weather)
             RemoveCompletedTasks(weeklyTasks, WEEKLY_DAYS_CHECK);
