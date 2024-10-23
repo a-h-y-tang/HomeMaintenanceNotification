@@ -51,4 +51,7 @@ stages:
                      -recipientName "$(recipientName)"
                      -sendGridApiKey "$(sendGridApiKey)"
                      -templateId "$(templateId)"
+                     -APIConnectorMaxRetries "$(apiConnectorMaxRetries)"
+                     -APIConnectorRetryDelayMs "$(apiConnectorRetryDelayMs)"
+                     -FUNCTIONS_WORKER_RUNTIME "dotnet"
                    deploymentMethod: 'auto'
