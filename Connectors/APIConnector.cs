@@ -39,8 +39,8 @@ namespace HomeMaintenanceNotification.Connectors
             _logger = logger;
 
             // Define a pipeline builder which will be used to compose strategies incrementally.
-            int maxRetries = GetConfiguration("DEFAULT_MAX_RETRIES", DEFAULT_MAX_RETRIES);
-            int retryDelayMs = GetConfiguration("DEFAULT_RETRY_DELAY_MS", DEFAULT_RETRY_DELAY_MS);
+            int maxRetries = GetConfiguration("APIConnectorMaxRetries", DEFAULT_MAX_RETRIES);
+            int retryDelayMs = GetConfiguration("APIConnectorRetryDelayMs", DEFAULT_RETRY_DELAY_MS);
             _resiliencePipeline = RetryCircuitBreakerPipelineBuilder.Build(logger, maxRetries, retryDelayMs);
         }
 
