@@ -102,7 +102,7 @@ namespace HomeMaintenanceNotification
             RemoveCompletedTasks(yearlyTasks, ANNUAL_DAYS_CHECK);
 
             // construct and send email to SendGrid
-            await _sendGridConnector.SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks);
+            await _sendGridConnector.SendEmail(weeklyTasks, quarterlyTasks, semiAnnualTasks, yearlyTasks, ct);
         }
 
         private static void RemoveCompletedTasks(List<MaintenanceCycleTaskDTO> tasks, int withinDaysToCheck)

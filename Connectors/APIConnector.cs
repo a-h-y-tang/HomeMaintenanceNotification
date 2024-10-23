@@ -20,33 +20,33 @@ namespace HomeMaintenanceNotification.Connectors
     /// </summary>
     public class APIConnector : IAPIConnector
     {
-        private readonly IConfiguration _configuration;
+        private static readonly int DEFAULT_MAX_RETRIES = 2;
+
+        private static readonly int DEFAULT_RETRY_DELAY_MS = 2000;
+
+        private readonly IConfigurationService _configurationService;
 
         private readonly HttpClient _httpClient;
 
-        private readonly ILogger _logger;
-
         private readonly ResiliencePipeline _resiliencePipeline;
 
-        private static readonly int DEFAULT_MAX_RETRIES = 2;
+        private readonly string _endpoint;
 
-        private static readonly int DEFAULT_RETRY_DELAY_MS = 1000;
-
-        public APIConnector(HttpClient httpClient, ILogger<APIConnector> logger, IConfiguration configuration)
+        public APIConnector(HttpClient httpClient, ILogger<APIConnector> logger, IConfigurationService configurationService)
         {
             _httpClient = httpClient;
-            _configuration = configuration;
-            _logger = logger;
+            _configurationService = configurationService;
 
             // Define a pipeline builder which will be used to compose strategies incrementally.
-            int maxRetries = GetConfiguration("APIConnectorMaxRetries", DEFAULT_MAX_RETRIES);
-            int retryDelayMs = GetConfiguration("APIConnectorRetryDelayMs", DEFAULT_RETRY_DELAY_MS);
+            int maxRetries = _configurationService.GetConfiguration("APIConnectorMaxRetries", DEFAULT_MAX_RETRIES);
+            int retryDelayMs = _configurationService.GetConfiguration("APIConnectorRetryDelayMs", DEFAULT_RETRY_DELAY_MS);
             _resiliencePipeline = RetryCircuitBreakerPipelineBuilder.Build(logger, maxRetries, retryDelayMs);
+            _endpoint = _configurationService.GetConfiguration("HomeMaintenanceAPIEndpoint", string.Empty);
         }
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetWeeklyTasks(int weekNumber, CancellationToken cancellationToken = default)
         {
-            string url = $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}";
+            string url = $"{_endpoint}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=WeekNumber eq {weekNumber}";
             var envelope = await _resiliencePipeline.ExecuteAsync(async ct => {
                 return await ExecuteGet(url, cancellationToken);
             }, cancellationToken);
@@ -56,24 +56,13 @@ namespace HomeMaintenanceNotification.Connectors
 
         public async Task<List<MaintenanceCycleTaskDTO>> GetTasksByFrequencyPeriod(Frequency frequencyPeriod, CancellationToken cancellationToken = default)
         {
-            string url = $"{_configuration["HomeMaintenanceAPIEndpoint"]}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}";
+            string url = $"{_endpoint}/odata/maintenanceCycleTask?$expand=TaskExecutionHistory&$filter=TaskFrequency eq {((int)frequencyPeriod)}";
             var envelope = await _resiliencePipeline.ExecuteAsync(async ct => {
                 return await ExecuteGet(url, cancellationToken);
             }, cancellationToken);
 
             return envelope.Value;
-        }
-
-        private int GetConfiguration(string configKey, int defaultValue)
-        {
-            string configValue = _configuration[configKey];
-            if (string.IsNullOrWhiteSpace(configValue))
-                _logger.LogError("Configuration not specified {0}", configKey);
-            if (int.TryParse(configValue, out int value))
-                return value;
-
-            return defaultValue;
-        }
+        }        
 
         private async Task<ODataEnvelope> ExecuteGet(string requestUrl, CancellationToken ct)
         {

@@ -1,12 +1,14 @@
 ﻿using HomeMaintenanceNotification.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace HomeMaintenanceNotification.Connectors
@@ -16,14 +18,24 @@ namespace HomeMaintenanceNotification.Connectors
     /// </summary>
     public class SendGridConnector : ISendGridConnector
     {
-        private readonly IConfiguration _configuration;
-
         private readonly ILogger<SendGridConnector> _logger;
 
-        public SendGridConnector(IConfiguration configuration, ILogger<SendGridConnector> logger)
+        private readonly IConfigurationService _configService;
+
+        private readonly ResiliencePipeline _resiliencePipeline;
+
+        private static readonly int DEFAULT_MAX_RETRIES = 2;
+
+        private static readonly int DEFAULT_RETRY_DELAY_MS = 10000;
+
+        public SendGridConnector(IConfigurationService configService, ILogger<SendGridConnector> logger)
         {
-            _configuration = configuration;
+            _configService = configService;
             _logger = logger;
+
+            int maxRetries = _configService.GetConfiguration("SendGridConnectorMaxRetries", DEFAULT_MAX_RETRIES);
+            int retryDelayMs = _configService.GetConfiguration("SendGridConnectorRetryDelayMs", DEFAULT_RETRY_DELAY_MS);
+            _resiliencePipeline = RetryCircuitBreakerPipelineBuilder.Build(logger, maxRetries, retryDelayMs);
         }
 
         /// <summary>
@@ -34,16 +46,16 @@ namespace HomeMaintenanceNotification.Connectors
         /// <param name="semiAnnualTasks"></param>
         /// <param name="annualTasks"></param>
         /// <returns></returns>
-        public async Task SendEmail(List<MaintenanceCycleTaskDTO> weeklyTasks, List<MaintenanceCycleTaskDTO> quarterlyTasks, List<MaintenanceCycleTaskDTO> semiAnnualTasks, List<MaintenanceCycleTaskDTO> annualTasks)
+        public async Task SendEmail(List<MaintenanceCycleTaskDTO> weeklyTasks, List<MaintenanceCycleTaskDTO> quarterlyTasks, List<MaintenanceCycleTaskDTO> semiAnnualTasks, List<MaintenanceCycleTaskDTO> annualTasks, CancellationToken ct = default)
         {
-            string fromEmail = _configuration["fromEmail"];
-            string fromName = _configuration["fromName"];
-            string recipientEmail = _configuration["recipientEmail"];
-            string recipientName = _configuration["recipientName"];
-            string templateId = _configuration["templateId"];
-            string sendGridApiKey = _configuration["sendGridApiKey"];
+            string fromEmail = _configService.GetConfiguration("fromEmail", string.Empty);
+            string fromName = _configService.GetConfiguration("fromName", string.Empty);
+            string recipientEmail = _configService.GetConfiguration("recipientEmail", string.Empty);
+            string recipientName = _configService.GetConfiguration("recipientName", string.Empty);
+            string templateId = _configService.GetConfiguration("templateId", string.Empty);
+            string sendGridApiKey = _configService.GetConfiguration("sendGridApiKey", string.Empty);
 
-            SendGridMessage message = new SendGridMessage();
+            SendGridMessage message = new();
             message.SetFrom(fromEmail, fromName);
             message.AddTo(recipientEmail, recipientName);
             message.SetTemplateId(templateId);
@@ -54,19 +66,24 @@ namespace HomeMaintenanceNotification.Connectors
                     quarterlyTasks = quarterlyTasks,
                     semiAnnualTasks = semiAnnualTasks,
                     annualTasks = annualTasks
-                });
+                }
+            );
 
             SendGridClient client = new(sendGridApiKey);
-            var response = await client.SendEmailAsync(message);
 
-            if (response.IsSuccessStatusCode)
+            await _resiliencePipeline.ExecuteAsync(async ct =>
             {
-                _logger.LogInformation($"Sent email to {recipientEmail} via SendGrid");
-            }
-            else
-            {
-                _logger.LogError($"Failed to send email to {recipientEmail} via SendGrid");
-            }
+                var response = await client.SendEmailAsync(message, ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation($"Sent email to {recipientEmail} via SendGrid");
+                }
+                else
+                {
+                    _logger.LogError($"Failed to send email to {recipientEmail} via SendGrid");
+                }
+            }, ct);
         }
     }
 }
